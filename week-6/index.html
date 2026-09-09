@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Github Code Reviewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <div class="background-glow glow-one"></div>
+      <div class="background-glow glow-two"></div>
+      <div class="background-glow glow-three"></div>
+      <div class="grid-overlay"></div>
+
+      <header class="topbar">
+        <nav class="nav-bar glass-card" aria-label="Main navigation">
+          <div class="brand-wrap">
+            <div class="brand-icon" aria-label="AI icon">
+              <span>✦</span>
+            </div>
+            <div class="brand-text">
+              <span class="brand-label">Github AI</span>
+            </div>
+          </div>
+
+          <div class="nav-links" aria-label="Navigation links">
+            <a href="#" class="nav-link active">Overview</a>
+            <a href="#" class="nav-link">Reviews</a>
+            <a href="#" class="nav-link">History</a>
+            <a href="#" class="nav-link">API</a>
+          </div>
+
+          <div class="nav-actions">
+            <div class="status-pill">
+              <span class="status-dot"></span>
+              Live
+            </div>
+            <div class="avatar">AI</div>
+          </div>
+        </nav>
+      </header>
+
+      <main class="app-shell">
+        <section class="hero-panel glass-card">
+          <div class="hero-header">
+            <div class="title-wrap">
+              <div class="eyebrow">AI review engine</div>
+              <h1>AI Github Code Reviewer</h1>
+            </div>
+          </div>
+
+          <p class="subtitle">
+            Review repository links with advanced AI analysis to improve clarity, code quality,
+            implementation confidence, and release readiness.
+          </p>
+
+          <div class="metrics-row" aria-label="Performance metrics">
+            <div class="metric-card">
+              <span class="metric-label">Repos analyzed</span>
+              <strong>24k+</strong>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Avg. score</span>
+              <strong>94%</strong>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Model status</span>
+              <strong>Online</strong>
+            </div>
+          </div>
+
+          <label class="input-label" for="story-url">Github URL</label>
+          <div class="input-wrap">
+            <span class="input-icon">↗</span>
+            <input
+              id="story-url"
+              type="text"
+              placeholder="Paste url"
+              aria-label="Paste a Github story URL"
+            />
+          </div>
+
+          <button type="button" class="review-button">Review Code</button>
+
+          <div class="result-card">
+            <div class="result-header">
+              <span class="result-title">Review Result</span>
+              <span class="analysis-badge" aria-live="polite">Analysis Complete</span>
+            </div>
+            <div id="review-result" class="result-body" aria-live="polite">Waiting for review...</div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      (function () {
+        const input = document.getElementById('story-url');
+        const button = document.querySelector('.review-button');
+        const resultBox = document.getElementById('review-result');
+        const inputWrap = document.querySelector('.input-wrap');
+        const badge = document.querySelector('.analysis-badge');
+        const webhookUrl = 'http://localhost:5678/webhook/githubreviewer';
+        const progressMessages = [
+          'Reading Github URL...',
+          'Checking repository access...',
+          'Analyzing code quality...',
+          'Preparing AI review...'
+        ];
+        let progressTimer = null;
+
+        function resetStatusClasses() {
+          resultBox.classList.remove('is-loading', 'is-success', 'is-error');
+        }
+
+        function showCompletionBadge() {
+          badge.classList.add('visible');
+        }
+
+        function hideCompletionBadge() {
+          badge.classList.remove('visible');
+        }
+
+        function formatInlineMarkdown(text) {
+          return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+            .replace(/_([^_]+)_/g, '<em>$1</em>');
+        }
+
+        function formatMarkdown(rawText) {
+          if (!rawText || !String(rawText).trim()) {
+            return '<p>No review returned.</p>';
+          }
+
+          const text = String(rawText).trim();
+          const blocks = text.split(/\n{2,}/).filter(Boolean);
+          const html = [];
+
+          for (const block of blocks) {
+            const trimmed = block.trim();
+
+            if (trimmed.startsWith('```')) {
+              const codeMatch = trimmed.match(/^```(?:\w+)?\n([\s\S]*?)\n```$/);
+              const codeText = codeMatch ? codeMatch[1] : trimmed.replace(/^```(?:\w+)?\n|\n```$/g, '');
+              html.push(`<pre><code>${formatInlineMarkdown(codeText)}</code></pre>`);
+              continue;
+            }
+
+            if (trimmed.includes('|')) {
+              const rows = trimmed.split('\n').map((line) => line.trim()).filter(Boolean);
+              if (rows.length >= 2 && rows[1].includes('---')) {
+                const header = rows[0].split('|').map((cell) => cell.trim()).filter(Boolean);
+                const bodyRows = rows.slice(2).map((row) => row.split('|').map((cell) => cell.trim()).filter(Boolean));
+                const thead = header.map((cell) => `<th>${formatInlineMarkdown(cell)}</th>`).join('');
+                const tbody = bodyRows.map((row) => `<tr>${row.map((cell) => `<td>${formatInlineMarkdown(cell)}</td>`).join('')}</tr>`).join('');
+                html.push(`<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`);
+                continue;
+              }
+            }
+
+            if (/^#{1,6}\s+/.test(trimmed)) {
+              const match = trimmed.match(/^(#{1,6})\s+(.*)$/);
+              if (match && match[1] && match[2] !== undefined) {
+                const level = match[1].length;
+                const headingText = formatInlineMarkdown(match[2]);
+                html.push(`<h${level}>${headingText}</h${level}>`);
+                continue;
+              }
+            }
+
+            const listLines = trimmed.split('\n').map((line) => line.trim()).filter(Boolean);
+            if (listLines.length && listLines.every((line) => /^[-*+]\s+/.test(line) || /^\d+\.\s+/.test(line))) {
+              const isOrdered = listLines.every((line) => /^\d+\.\s+/.test(line));
+              const items = listLines.map((line) => {
+                const text = line.replace(/^[-*+]\s+|^\d+\.\s+/, '');
+                return `<li>${formatInlineMarkdown(text)}</li>`;
+              }).join('');
+              html.push(isOrdered ? `<ol>${items}</ol>` : `<ul>${items}</ul>`);
+              continue;
+            }
+
+            const paragraphText = trimmed
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean)
+              .join(' ');
+            html.push(`<p>${formatInlineMarkdown(paragraphText)}</p>`);
+          }
+
+          return html.join('');
+        }
+
+        function setResult(message, type = 'default') {
+          resetStatusClasses();
+          hideCompletionBadge();
+
+          if (type === 'loading') {
+            resultBox.classList.add('is-loading');
+            resultBox.innerHTML = `
+              <span class="loading-inline">
+                <span class="loading-dots" aria-label="Loading">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </span>
+                ${message}
+              </span>
+            `;
+            return;
+          }
+
+          if (type === 'success') {
+            resultBox.classList.add('is-success');
+            resultBox.innerHTML = `<div class="markdown-body">${formatMarkdown(message)}</div>`;
+            showCompletionBadge();
+            return;
+          }
+
+          if (type === 'error') {
+            resultBox.classList.add('is-error');
+            resultBox.textContent = message;
+            return;
+          }
+
+          resultBox.textContent = message;
+        }
+
+        function setInputErrorState(hasError) {
+          inputWrap.classList.toggle('is-error', hasError);
+          input.setAttribute('aria-invalid', String(hasError));
+        }
+
+        function startProgressLoop() {
+          let index = 0;
+          clearInterval(progressTimer);
+
+          progressTimer = setInterval(() => {
+            const message = progressMessages[index % progressMessages.length];
+            setResult(message, 'loading');
+            index += 1;
+          }, 1500);
+        }
+
+        function stopProgressLoop() {
+          clearInterval(progressTimer);
+          progressTimer = null;
+        }
+
+        function extractReviewText(payload) {
+          if (typeof payload === 'string') {
+            return payload;
+          }
+
+          if (Array.isArray(payload)) {
+            for (const item of payload) {
+              const found = extractReviewText(item);
+              if (found && found.trim()) {
+                return found;
+              }
+            }
+            return '';
+          }
+
+          if (payload && typeof payload === 'object') {
+            const keys = ['review', 'message', 'result', 'output', 'text', 'content', 'data'];
+
+            for (const key of keys) {
+              if (payload[key] !== undefined && payload[key] !== null) {
+                const found = extractReviewText(payload[key]);
+                if (found && found.trim()) {
+                  return found;
+                }
+              }
+            }
+
+            for (const value of Object.values(payload)) {
+              const found = extractReviewText(value);
+              if (found && found.trim()) {
+                return found;
+              }
+            }
+          }
+
+          return '';
+        }
+
+        async function submitReview() {
+          const githubUrl = input.value.trim();
+
+          if (!githubUrl) {
+            stopProgressLoop();
+            setInputErrorState(true);
+            setResult('Please enter a Github URL before submitting.', 'error');
+            input.focus();
+            return;
+          }
+
+          setInputErrorState(false);
+          button.disabled = true;
+          startProgressLoop();
+
+          try {
+            const response = await fetch(webhookUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ githubUrl })
+            });
+
+            const rawText = await response.text();
+            let parsedData = rawText;
+
+            if (rawText) {
+              try {
+                parsedData = JSON.parse(rawText);
+              } catch (error) {
+                parsedData = rawText;
+              }
+            }
+
+            const reviewText = extractReviewText(parsedData) || 'No review returned from the webhook.';
+
+            if (!response.ok) {
+              throw new Error(reviewText);
+            }
+
+            stopProgressLoop();
+            setResult(reviewText, 'success');
+          } catch (error) {
+            stopProgressLoop();
+            setResult(error.message || 'Unable to connect to the webhook. Please check your n8n endpoint and try again.', 'error');
+          } finally {
+            button.disabled = false;
+          }
+        }
+
+        button.addEventListener('click', submitReview);
+
+        input.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            submitReview();
+          }
+        });
+
+        input.addEventListener('input', function () {
+          if (input.value.trim()) {
+            setInputErrorState(false);
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
