@@ -1,0 +1,86 @@
+```typescript
+import { BrowserContext, Page } from "@playwright/test";
+import { PlaywrightWrapper } from "../helpers/playwright";
+
+export class WorkTypeGroupPage extends PlaywrightWrapper {
+    private readonly selectors = {
+        workTypeGroupTab: "//span[contains(text(),'Work Type Groups')]/following::a[1]",
+        newWorkTypeGroupBtn: "//span[text()='New Work Type Group']",
+        workTypeGroupNameInput: "//input[@name='Name']",
+        workTypeGroupDescTextarea: "//span[text()='Description']/following::textarea[1]",
+        groupTypeLabel: "//label[text()='Group Type']",
+        capacityOption: "//span[text()='Capacity']",
+        saveEditButton: "//button[@name='SaveEdit']",
+        toastMessage: "//span[@class='toastMessage slds-text-heading--small forceActionsText']",
+        workTypeSearchField: "//input[@placeholder='Search this list...']",
+        showActionsDD: "(//button[contains(@class,'slds-button slds-button_icon-border')])[1]",
+        editLink: "//a[@title='Edit']",
+        deleteLink: "//a[@title='Delete']",
+        confirmDeleteButton: "//button[@title='Delete']",
+    };
+
+    constructor(page: Page, context: BrowserContext) {
+        super(page, context);
+    }
+
+    public async clickWorkTypeGroupTab(): Promise<void> {
+        await this.click(
+            this.selectors.workTypeGroupTab,
+            "Work Type Group Tab",
+            "Link"
+        );
+    }
+
+    public async clickNewWorkTypeGroup(): Promise<void> {
+        await this.click(
+            this.selectors.newWorkTypeGroupBtn,
+            "New Work Type Group Button",
+            "Button"
+        );
+    }
+
+    public async enterWorkTypeGroupName(gName: string): Promise<void> {
+        await this.type(
+            this.selectors.workTypeGroupNameInput,
+            "Work Type Group Name Input",
+            gName
+        );
+    }
+
+    public async enterWorkTypeDesc(desc: string): Promise<void> {
+        await this.type(
+            this.selectors.workTypeGroupDescTextarea,
+            "Work Type Group Description Textarea",
+            desc
+        );
+    }
+
+    public async selectGroupType(): Promise<void> {
+        await this.click(
+            this.selectors.groupTypeLabel,
+            "Group Type Label",
+            "Label"
+        );
+        await this.click(
+            this.selectors.capacityOption,
+            "Capacity Option",
+            "Option"
+        );
+    }
+
+    public async clickWorkTypeSaveButton(): Promise<void> {
+        await this.click(
+            this.selectors.saveEditButton,
+            "Save Button",
+            "Button"
+        );
+    }
+
+    public async verifyWorkTypeGroups(text: string): Promise<void> {
+        await this.validateElementVisibility(
+            this.selectors.toastMessage,
+            "Toast Message"
+        );
+    }
+
+    public async enterWorkTypeSearchField

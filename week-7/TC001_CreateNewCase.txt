@@ -1,0 +1,80 @@
+```typescript
+import { test } from "../customFixtures/salesForceFixture";
+import { FakerData } from "../helpers/fakerUtils";
+
+/* ------------- Test Metadata ------------- */
+test.info().annotations.push(
+  { type: 'TestCase', description: 'TC_001_Create New Case' },
+  { type: 'TestDescription', description: 'Creates and verifies a new Salesforce Case using data from Excel' },
+  { type: 'Author', description: 'Hari' },
+  { type: 'Category', description: 'Regression' }
+);
+
+/* ------------- Fixture Storage State ------------- */
+// If a login state is already captured, use it to skip manual login.
+// Otherwise, the SalesforceLogin fixture will perform the login steps.
+test.use({ storageState: "logins/salesforceLogin.json" });
+
+/* ------------- Test Data ------------- */
+const searchField = "Cases";
+const salutation = "Mr.";
+const status = "New";
+const origin = "Web";
+const subject = FakerData.getRandomSentence();
+const description = FakerData.getParagraph();
+
+/* ------------- Test Implementation ------------- */
+test(`TC_001_Create New Case`, async ({
+  SalesforceLogin,
+  SalesforceHome,
+  SalesforceCase,
+  SalesforceContact,
+}) => {
+  /* Login to Salesforce */
+  await SalesforceLogin.salesforceLogin("ADMINLOGIN");
+
+  /* Navigate to Cases via App Launcher */
+  await SalesforceHome.appLauncher();
+  await SalesforceHome.viewAll();
+  await SalesforceHome.searchApp(searchField);
+  await SalesforceHome.selectApp("Cases");
+
+  /* Start creating a new case */
+  await SalesforceCase.newCase();
+
+  /* Create a new contact for the case */
+  await SalesforceCase.selectContactName();
+  await SalesforceCase.newContact();
+  await SalesforceCase.selectSalutation(salutation);
+  const firstName = FakerData.getFirstName();
+  const lastName = FakerData.getLastName();
+  await SalesforceCase.enterFirstName(firstName);
+  await SalesforceCase.enterLastName(lastName);
+  await SalesforceCase.clickSave(); // Save the new contact
+
+  /* Fill in case details */
+  await SalesforceCase.selectStatus(status);
+  await SalesforceCase.selectCaseOrigin(origin);
+  await SalesforceCase.enterSubject(subject);
+  await SalesforceCase.enterDescription(description);
+
+  /* Save the case */
+  await SalesforceCase.clickSaveCase();
+
+  /* Verify that the case was created */
+  await SalesforceCase.verifyCreatedCase(firstName);
+});
+```
+
+**Key Transformations**
+
+| Legacy Feature | Playwright Equivalent |
+|----------------|-----------------------|
+| `@BeforeTest` metadata | `test.info().annotations.push(...)` |
+| `new LoginPage()` & chained actions | Fixture‑injected page objects (`SalesforceLogin`, `SalesforceHome`, `SalesforceCase`) with awaited method calls |
+| `@Test(dataProvider="fetchData")` | Hard‑coded test data derived from `FakerData` (no direct data provider) |
+| `page.locator()` usage | Eliminated; all interactions go through fixture methods |
+| Synchronous Selenium calls | Asynchronous `await` calls in TypeScript |
+| Excel‑driven data | Replaced by dynamic Faker data for first name, last name, subject, description |
+| `test.use({ storageState: ... })` | Added to reuse a pre‑logged‑in state if available |
+| Method chaining | Sequential `await` calls for clarity and type safety |
